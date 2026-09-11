@@ -1,0 +1,311 @@
+:root {
+  --bg: #0e1013;
+  --card: #171a21;
+  --text: #e8e6e3;
+  --muted: #9aa0a6;
+  --accent: #ff5c5c;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+a { color: inherit; text-decoration: none; }
+img { display: block; }
+
+/* ---------- Header ---------- */
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(14, 16, 19, 0.95);
+  border-bottom: 1px solid #23262e;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  flex-wrap: wrap;
+}
+
+.logo {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.search-form {
+  display: flex;
+  gap: 8px;
+}
+
+.search-form input {
+  background: var(--card);
+  border: 1px solid #2a2e38;
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 12px;
+  min-width: 220px;
+}
+
+.search-form button,
+.btn {
+  background: var(--accent);
+  color: #14161a;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn.secondary {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid #2a2e38;
+}
+
+main {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+h2 {
+  margin: 24px 0 12px;
+  font-size: 18px;
+}
+
+.error-msg {
+  color: var(--accent);
+  padding: 16px;
+}
+
+/* ---------- Grid kartu ---------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: transform 0.15s ease;
+  display: block;
+}
+
+.card:hover { transform: translateY(-3px); }
+
+.thumb-wrap {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  background: #22262f;
+}
+
+.thumb-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.card-title {
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 38px;
+}
+
+.card-sub {
+  padding: 0 10px 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---------- Baris horizontal populer ---------- */
+
+.hscroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.hscroll .card { flex: 0 0 150px; }
+
+/* ---------- Detail ---------- */
+
+.detail-head {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.detail-cover {
+  flex: 0 0 240px;
+  aspect-ratio: 2 / 3;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #22262f;
+}
+
+.detail-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+.detail-info { flex: 1; min-width: 280px; }
+
+.detail-info h1 { font-size: 26px; margin-bottom: 8px; }
+
+.meta-row {
+  display: flex;
+  gap: 8px;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.meta-row .k { color: var(--muted); min-width: 130px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+
+.chip {
+  background: var(--card);
+  border: 1px solid #2a2e38;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
+.chip:hover { border-color: var(--accent); }
+
+.synopsis { margin: 12px 0 20px; color: var(--muted); max-width: 760px; }
+
+.detail-actions { display: flex; gap: 10px; margin: 16px 0; flex-wrap: wrap; }
+
+/* ---------- Daftar chapter ---------- */
+
+.chapter-list { list-style: none; max-width: 760px; }
+
+.chapter-list li {
+  border-bottom: 1px solid #23262e;
+}
+
+.chapter-list a {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 4px;
+}
+
+.chapter-list a:hover { color: var(--accent); }
+
+.chapter-list .date { color: var(--muted); font-size: 13px; }
+
+/* ---------- Halaman baca ---------- */
+
+.read-wrap { max-width: 800px; margin: 0 auto; }
+
+.read-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+
+.read-wrap img {
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+/* ---------- Pagination ---------- */
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.pagination button:disabled { opacity: 0.4; cursor: default; }
+
+/* ---------- Filter browse ---------- */
+
+.filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.filters select,
+.filters button {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid #2a2e38;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.filters button.active { border-color: var(--accent); color: var(--accent); }
+
+.empty { color: var(--muted); padding: 24px 0; }
+
+/* ---------- Nav, favorit, riwayat ---------- */
+
+.main-nav { display: flex; gap: 14px; }
+
+.main-nav a { color: var(--muted); font-size: 14px; padding: 6px 0; }
+
+.main-nav a:hover { color: var(--accent); }
+
+.see-all { font-size: 13px; color: var(--accent); margin-left: 12px; font-weight: normal; }
+
+.btn.active { border-color: var(--accent); color: var(--accent); }
+
+.chapter-bar { display: flex; align-items: center; justify-content: space-between; max-width: 760px; }
+
+.chapter-list li.read a { color: var(--muted); }
+
+.chapter-list li.read a:hover { color: var(--muted); }
+
+.page-counter { text-align: center; color: var(--muted); font-size: 13px; padding: 12px 0; }
+
+.card.skel .thumb-wrap { background: linear-gradient(100deg, #22262f 40%, #2b303c 50%, #22262f 60%); background-size: 200% 100%; animation: skel 1.2s infinite linear; min-height: 240px; }
+@keyframes skel { to { background-position: -200% 0; } }
+
+.site-foot { text-align: center; color: var(--muted); font-size: 13px; padding: 28px 16px 40px; border-top: 1px solid #23262e; margin-top: 32px; }
+.site-foot a { color: var(--accent); }
+
+.chapter-bar input[type="search"] { background: var(--card); border: 1px solid #2a2e38; color: var(--text); border-radius: 8px; padding: 8px 12px; min-width: 180px; }
+
+@media (max-width: 600px) {
+  .grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .detail-cover { flex: 0 0 140px; }
+  .detail-info h1 { font-size: 20px; }
+  .search-form input { min-width: 0; flex: 1; }
+  .search-form { width: 100%; }
+  .chapter-bar { flex-wrap: wrap; gap: 8px; }
+}

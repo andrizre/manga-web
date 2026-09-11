@@ -1,0 +1,13 @@
+{
+  "name": "manga-web",
+  "version": "1.0.0",
+  "description": "API komik (kontrak manga-api) dengan scraper komiku.org live + frontend statis",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "express": "^4.19.2"
+  }
+}
