@@ -113,6 +113,7 @@ function renderCard(item) {
   const img = document.createElement("img");
   img.src = imgSrc(item.thumb);
   armImg(img, item.title);
+  wrap.appendChild(img);
   if (item.type) {
     const badge = document.createElement("span");
     badge.className = "badge";

@@ -134,7 +134,10 @@ app.get("/api/manhwa/:pagenumber", wrap((req) =>
 
 // ---------- Proxy gambar (kurangi hotlink langsung + blokir referrer) ----------
 
-const IMG_ALLOW = new Set(["komiku.org", "komiku.to", "cdn.komiku.org", "cdn.komiku.to", "api.komiku.org"]);
+function imgHostAllowed(hostname) {
+  const h = String(hostname || "").toLowerCase();
+  return h === "komiku.org" || h === "komiku.to" || h.endsWith(".komiku.org") || h.endsWith(".komiku.to");
+}
 
 app.get("/api/img", async (req, res) => {
   const raw = String(req.query.u || "");
@@ -144,7 +147,7 @@ app.get("/api/img", async (req, res) => {
   } catch (_) {
     return res.status(400).json({ status: false, message: "URL gambar tidak valid" });
   }
-  if (target.protocol !== "https:" || !IMG_ALLOW.has(target.hostname)) {
+  if (target.protocol !== "https:" || !imgHostAllowed(target.hostname)) {
     return res.status(403).json({ status: false, message: "Host gambar tidak diizinkan" });
   }
   try {
