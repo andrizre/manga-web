@@ -1,6 +1,6 @@
 // ---------- Read ----------
 
-const READER_DEFAULTS = { width: "w-800", gap: "gap-4", bg: "bg-black", mode: "fit-width", hideChrome: false, tapToggle: true };
+const READER_DEFAULTS = { width: "w-800", gap: "gap-4", bg: "bg-black", mode: "fit-width", hideChrome: true, tapToggle: true };
 function readerSettings() {
   try {
     return { ...READER_DEFAULTS, ...(JSON.parse(localStorage.getItem("kmn_reader") || "{}")) };
@@ -333,10 +333,13 @@ async function pageRead() {
       progFill.style.width = `${(pct * 100).toFixed(1)}%`;
       fab.classList.toggle("show", y > 900);
       if (settings.hideChrome) {
-        const goingDown = y > lastY + 4;
-        const goingUp = y < lastY - 4;
-        if (goingDown && y > 220) document.body.classList.add("reader-hide-chrome");
-        else if (goingUp) document.body.classList.remove("reader-hide-chrome");
+        const goingDown = y > lastY + 24;
+        const goingUp = y < lastY - 12;
+        if (goingDown && y > 320 && !setPanel.classList.contains("open")) {
+          document.body.classList.add("reader-hide-chrome");
+        } else if (goingUp || y <= 120) {
+          document.body.classList.remove("reader-hide-chrome");
+        }
         lastY = y;
       } else {
         document.body.classList.remove("reader-hide-chrome");
