@@ -250,7 +250,7 @@ app.use(express.static(path.join(__dirname, "..", "public"), {
   setHeaders(res, filePath) {
     // HTML: revalidasi tiap request; aset hash-less (app.js) dijamin segar via SW VERSION
     if (filePath.endsWith(".html")) {
-      res.set("Cache-Control", "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400");
+      res.set("Cache-Control", "public, max-age=0, s-maxage=60, stale-while-revalidate=86400");
       res.set("X-Robots-Tag", "noindex, nofollow"); // situs pribadi: jangan diindeks
     }
   },

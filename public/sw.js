@@ -2,7 +2,7 @@
 // - App shell (HTML/CSS/JS/ikon): cache-first, update di background
 // - API: network-first dengan fallback cache (data basi lebih baik daripada error)
 
-const VERSION = "v6";
+const VERSION = "v7";
 const SHELL_CACHE = `shell-${VERSION}`;
 const API_CACHE = `api-${VERSION}`;
 const IMG_CACHE = `img-${VERSION}`;
