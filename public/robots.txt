@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 Disallow: /api/img
-Sitemap: /manifest.webmanifest
+Sitemap: /sitemap.xml

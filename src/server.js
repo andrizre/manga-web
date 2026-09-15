@@ -5,43 +5,16 @@ const scraper = require("./scraper");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ---------- Cache in-memory (TTL 10 menit, max 300 entri, key ternormalisasi) ----------
+// ---------- Cache via CDN (Vercel): memori lokal tidak dishare antar instance serverless ----------
 
-const CACHE_TTL = 10 * 60 * 1000;
-const CACHE_MAX = 300;
-const cache = new Map();
-const ALLOWED_QUERY = new Set(["tipe", "orderby", "q", "page"]);
+// TTL per jenis respons (detik). freshness dijamin CDN; stale-while-revalidate menutup jeda scraper.
+const CACHE_LIST = 600; // list, search, genre, detail: 10 menit
+const CACHE_CHAPTER = 3600; // chapter: 1 jam (isi halaman jarang berubah)
 
-function cacheKey(req) {
-  const qm = req.originalUrl.indexOf("?");
-  if (qm === -1) return `GET ${req.path}`;
-  const params = new URLSearchParams(req.originalUrl.slice(qm + 1));
-  const clean = new URLSearchParams();
-  [...params.keys()].sort().forEach((k) => {
-    if (ALLOWED_QUERY.has(k)) clean.set(k, params.get(k));
-  });
-  const s = clean.toString();
-  return `GET ${req.path}${s ? `?${s}` : ""}`;
-}
+// ---------- Rate-limit best-effort per instance (60 req/menit per IP untuk /api) ----------
+// Batas global antar instance diatur di dashboard Vercel; ini hanya penahan burst lokal.
 
-function cacheGet(key) {
-  const hit = cache.get(key);
-  if (!hit) return null;
-  if (Date.now() - hit.t > CACHE_TTL) {
-    cache.delete(key);
-    return null;
-  }
-  return hit.data;
-}
-
-function cacheSet(key, data) {
-  if (cache.size >= CACHE_MAX) {
-    cache.delete(cache.keys().next().value);
-  }
-  cache.set(key, { t: Date.now(), data });
-}
-
-// ---------- Rate-limit sederhana (60 req/menit per IP untuk /api) ----------
+app.set("trust proxy", 1);
 
 const RL_WINDOW = 60 * 1000;
 const RL_MAX = 60;
@@ -59,21 +32,20 @@ function rateLimit(req, res, next) {
     res.set("Retry-After", Math.ceil((st.reset - now) / 1000));
     return res.status(429).json({ status: false, message: "Terlalu banyak permintaan, coba lagi sebentar." });
   }
+  if (rl.size > 2000) rl.delete(rl.keys().next().value);
   next();
 }
 
 app.use(rateLimit);
 
-// ---------- Wrapper handler scraper ----------
+// ---------- Wrapper handler scraper: cache di CDN, bukan memori lokal ----------
 
-function wrap(fn) {
+function wrap(fn, ttl = CACHE_LIST) {
   return async (req, res) => {
-    const key = cacheKey(req);
+    const key = `${req.method} ${req.originalUrl}`;
     try {
-      const cached = cacheGet(key);
-      if (cached) return res.json(cached);
       const data = await fn(req);
-      cacheSet(key, data);
+      res.set("Cache-Control", `public, s-maxage=${ttl}, stale-while-revalidate=${ttl * 6}`);
       res.json(data);
     } catch (err) {
       console.error(`[${new Date().toISOString()}] ${key}:`, err.message);
@@ -155,16 +127,18 @@ app.get("/api/img", async (req, res) => {
       headers: { "User-Agent": "Mozilla/5.0", Referer: "https://komiku.org/" },
       signal: AbortSignal.timeout(15000),
     });
-    if (!upstream.ok) throw new Error(`HTTP ${upstream.status}`);
+    if (!upstream.ok || !upstream.body) throw new Error(`HTTP ${upstream.status}`);
     const ct = upstream.headers.get("content-type") || "image/jpeg";
     if (!ct.startsWith("image/")) throw new Error("bukan gambar");
+    const len = upstream.headers.get("content-length");
+    if (len && Number(len) > 8 * 1024 * 1024) throw new Error("gambar terlalu besar");
     res.set("Content-Type", ct);
-    res.set("Cache-Control", "public, max-age=86400");
-    const buf = Buffer.from(await upstream.arrayBuffer());
-    if (buf.length > 8 * 1024 * 1024) throw new Error("gambar terlalu besar");
-    res.send(buf);
+    res.set("Cache-Control", "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800");
+    const nodeStream = require("stream").Readable.fromWeb(upstream.body);
+    nodeStream.on("error", () => { if (!res.headersSent) res.status(502).json({ status: false, message: "Gagal memuat gambar" }); else res.end(); });
+    nodeStream.pipe(res);
   } catch (err) {
-    res.status(502).json({ status: false, message: "Gagal memuat gambar" });
+    if (!res.headersSent) res.status(502).json({ status: false, message: "Gagal memuat gambar" });
   }
 });
 
@@ -196,12 +170,15 @@ app.get("/api/search", wrap((req) => {
   return scraper.searchManga(q).then((data) => mangaListShape(data));
 }));
 
-app.get("/api/manga/detail/:slug", wrap((req) => scraper.detailManga(cleanSlug(req.params.slug))));
+app.get("/api/chapter/:slug", wrap((req) => scraper.chapterDetail(cleanSlug(req.params.slug)), CACHE_CHAPTER));
 
-app.get("/api/chapter/:slug", wrap((req) => scraper.chapterDetail(cleanSlug(req.params.slug))));
-// ---------- Static frontend & fallback ----------
-
-app.use(express.static(path.join(__dirname, "..", "public")));
+app.use(express.static(path.join(__dirname, "..", "public"), {
+  maxAge: "1d",
+  setHeaders(res, filePath) {
+    // HTML: revalidasi tiap request; aset hash-less (app.js) dijamin segar via SW VERSION
+    if (filePath.endsWith(".html")) res.set("Cache-Control", "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400");
+  },
+}));
 
 app.get("/api", (req, res) => {
   res.json({

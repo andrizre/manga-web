@@ -236,6 +236,9 @@ h2 {
 
 .read-wrap img {
   width: 100%;
+  height: auto;
+  min-height: 40vh;
+  background: #22262f;
   margin-bottom: 4px;
 }
 

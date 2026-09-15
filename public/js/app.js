@@ -411,6 +411,7 @@ async function pageDetail() {
   try {
     d = await api(`/api/manga/detail/${encodeURIComponent(slug)}`);
     document.title = `${d.title || slug} - KomikuNesia`;
+    try { sessionStorage.setItem(`kmn_ch:${slug}`, JSON.stringify({ meta: { title: d.title, thumb: d.thumb, type: d.type }, list: d.chapter, t: Date.now() })); } catch (_) {}
   } catch (err) {
     return renderError(app, err);
   }
@@ -608,36 +609,63 @@ async function pageRead() {
   document.title = `${ch.title || ch.chapter_name} - KomikuNesia`;
   app.appendChild(h1);
 
-  // Nav prev/next dari daftar chapter detail
+  // Nav prev/next: pakai daftar chapter dari sessionStorage bila baru dari halaman detail (hemat 1 fetch)
   let prevCh = null, nextCh = null, mangaMeta = null;
+  const resolveNav = (list) => {
+    const idx = (list || []).findIndex(
+      (x) => x.chapter_endpoint.replace(/\/+$/, "") === c.replace(/\/+$/, "")
+    );
+    if (idx !== -1) {
+      // Daftar terbaru → terlama: index+1 lebih tua (sebelumnya), index-1 lebih baru (selanjutnya)
+      if (idx + 1 < list.length) prevCh = list[idx + 1];
+      if (idx - 1 >= 0) nextCh = list[idx - 1];
+    }
+  };
   if (m) {
     try {
-      const d = await api(`/api/manga/detail/${encodeURIComponent(m)}`);
-      mangaMeta = { title: d.title || m, thumb: d.thumb || "", type: d.type || "" };
-      const idx = (d.chapter || []).findIndex(
-        (x) => x.chapter_endpoint.replace(/\/+$/, "") === c.replace(/\/+$/, "")
-      );
-      if (idx !== -1) {
-        // Daftar terbaru → terlama: index+1 lebih tua (sebelumnya), index-1 lebih baru (selanjutnya)
-        if (idx + 1 < d.chapter.length) prevCh = d.chapter[idx + 1];
-        if (idx - 1 >= 0) nextCh = d.chapter[idx - 1];
+      const cached = JSON.parse(sessionStorage.getItem(`kmn_ch:${m}`) || "null");
+      if (cached && cached.list && Date.now() - (cached.t || 0) < 30 * 60 * 1000) {
+        mangaMeta = cached.meta;
+        resolveNav(cached.list);
+      } else {
+        const d = await api(`/api/manga/detail/${encodeURIComponent(m)}`);
+        mangaMeta = { title: d.title || m, thumb: d.thumb || "", type: d.type || "" };
+        resolveNav(d.chapter);
+        try { sessionStorage.setItem(`kmn_ch:${m}`, JSON.stringify({ meta: mangaMeta, list: d.chapter, t: Date.now() })); } catch (_) {}
       }
     } catch (_) {}
   }
-
   const navTop = buildReadNav(prevCh, nextCh, m);
   app.appendChild(navTop);
+  // Preload halaman pertama chapter berikut saat pembaca mencapai 80% halaman
+  if (nextCh && nextCh.chapter_endpoint) {
+    const nextUrl = `/api/chapter/${encodeURIComponent(nextCh.chapter_endpoint.replace(/\/+$/, ""))}`;
+    let preloaded = false;
+    const preloadNext = () => {
+      if (preloaded) return;
+      const y = window.scrollY + window.innerHeight;
+      const h = document.documentElement.scrollHeight;
+      if (h > 0 && y / h > 0.8) {
+        preloaded = true;
+        fetch(nextUrl).catch(() => {});
+        window.removeEventListener("scroll", preloadNext);
+      }
+    };
+    window.addEventListener("scroll", preloadNext, { passive: true });
+  }
 
   const imgs = document.createElement("div");
   imgs.className = "read-wrap";
-  (ch.chapter_image || []).forEach((im) => {
+  // 2 gambar pertama eager (LCP), sisanya lazy; preload chapter berikut saat mendekati bawah
+  (ch.chapter_image || []).forEach((im, idx) => {
     const img = document.createElement("img");
     img.src = imgSrc(im.chapter_image_link);
+    img.decoding = "async";
+    img.loading = idx < 2 ? "eager" : "lazy";
+    if (idx === 0) img.fetchPriority = "high";
     armImg(img, `Halaman ${im.image_number}`);
-    img.loading = "eager";
     imgs.appendChild(img);
   });
-
   app.appendChild(imgs);
 
   const counter = document.createElement("div");
