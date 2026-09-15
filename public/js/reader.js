@@ -241,7 +241,7 @@ async function pageRead() {
     const fig = document.createElement("figure");
     fig.className = "page-item";
     const img = document.createElement("img");
-    const real = imgSrc(im.chapter_image_link);
+    const real = imgSrc(im.chapter_image_link, 800);
     if (idx < 3) {
       img.src = real;
       if (idx === 0) img.fetchPriority = "high";

@@ -169,6 +169,9 @@ function imgHostAllowed(hostname) {
 
 app.get("/api/img", async (req, res) => {
   const raw = String(req.query.u || "");
+  // Lebar target opsional: thumb grid pakai &w=400, halaman reader &w=800.
+  // Tanpa w = passthrough apa adanya (kompatibel URL lama + SW lama).
+  const w = Math.min(1200, Math.max(0, parseInt(String(req.query.w || "0"), 10) || 0));
   let target;
   try {
     target = new URL(raw);
@@ -188,11 +191,24 @@ app.get("/api/img", async (req, res) => {
     if (!ct.startsWith("image/")) throw new Error("bukan gambar");
     const len = upstream.headers.get("content-length");
     if (len && Number(len) > 8 * 1024 * 1024) throw new Error("gambar terlalu besar");
-    res.set("Content-Type", ct);
     res.set("Cache-Control", "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800");
-    const nodeStream = require("stream").Readable.fromWeb(upstream.body);
-    nodeStream.on("error", () => { if (!res.headersSent) res.status(502).json({ status: false, message: "Gagal memuat gambar" }); else res.end(); });
-    nodeStream.pipe(res);
+    if (!w) {
+      res.set("Content-Type", ct);
+      const nodeStream = require("stream").Readable.fromWeb(upstream.body);
+      nodeStream.on("error", () => { if (!res.headersSent) res.status(502).json({ status: false, message: "Gagal memuat gambar" }); else res.end(); });
+      return nodeStream.pipe(res);
+    }
+    // Resize aman: buffer penuh dulu (batas 8MB di atas), tanpa upscale, JPEG q70.
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    const sharp = require("sharp");
+    const out = await sharp(buf, { failOn: "none" })
+      .rotate()
+      .resize({ width: w, withoutEnlargement: true, fit: "inside" })
+      .jpeg({ quality: 70, mozjpeg: true })
+      .toBuffer();
+    res.set("Content-Type", "image/jpeg");
+    res.set("Content-Length", String(out.length));
+    return res.send(out);
   } catch (err) {
     if (!res.headersSent) res.status(502).json({ status: false, message: "Gagal memuat gambar" });
   }

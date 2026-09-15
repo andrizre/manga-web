@@ -106,10 +106,11 @@ async function api(path, { retry = true } = {}) {
   return res.json();
 }
 
-function imgSrc(raw) {
+function imgSrc(raw, w = 0) {
   if (!raw) return "";
-  if (raw.startsWith("/api/img") || raw.startsWith("data:")) return raw;
-  return `/api/img?u=${encodeURIComponent(raw)}`;
+  if (raw.startsWith("data:")) return raw;
+  if (raw.startsWith("/api/img")) return w > 0 && !/[?&]w=/.test(raw) ? `${raw}&w=${w}` : raw;
+  return `/api/img?u=${encodeURIComponent(raw)}${w > 0 ? `&w=${w}` : ""}`;
 }
 
 function armImg(img, alt, { eager = false } = {}) {
@@ -117,6 +118,7 @@ function armImg(img, alt, { eager = false } = {}) {
   img.decoding = "async";
   img.referrerPolicy = "no-referrer";
   img.alt = alt || "";
+  if (eager) img.fetchPriority = "high";
   img.onerror = () => {
     img.onerror = null;
     img.src = "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="100%" height="100%" fill="#22262f"/><text x="50%" y="50%" fill="#9aa0a6" font-size="22" text-anchor="middle">Cover hilang</text></svg>`);
@@ -142,7 +144,7 @@ function renderCard(item) {
   const wrap = document.createElement("div");
   wrap.className = "thumb-wrap";
   const img = document.createElement("img");
-  img.src = imgSrc(item.thumb);
+  img.src = imgSrc(item.thumb, 400);
   armImg(img, item.title);
   wrap.appendChild(img);
   if (item.type) {
@@ -296,7 +298,7 @@ async function pageHome() {
       const wrap = document.createElement("div");
       wrap.className = "thumb-wrap";
       const img = document.createElement("img");
-      img.src = imgSrc(meta.thumb || "");
+      img.src = imgSrc(meta.thumb || "", 400);
       armImg(img, meta.title || slug);
       wrap.appendChild(img);
       const title = document.createElement("div");
@@ -533,7 +535,7 @@ async function pageDetail() {
   if (d.thumb) {
     const bg = document.createElement("div");
     bg.className = "detail-hero-bg";
-    bg.style.backgroundImage = `url("${imgSrc(d.thumb)}")`;
+    bg.style.backgroundImage = `url("${imgSrc(d.thumb, 400)}")`;
     app.appendChild(bg);
   }
 
@@ -543,8 +545,13 @@ async function pageDetail() {
   const cover = document.createElement("div");
   cover.className = "detail-cover";
   const cimg = document.createElement("img");
-  cimg.src = imgSrc(d.thumb);
+  cimg.src = imgSrc(d.thumb, 400);
   armImg(cimg, d.title, { eager: true });
+  const preload = document.createElement("link");
+  preload.rel = "preload";
+  preload.as = "image";
+  preload.href = cimg.src;
+  document.head.appendChild(preload);
   cover.appendChild(cimg);
   head.appendChild(cover);
 
@@ -743,7 +750,7 @@ function favCard(slug, meta, href, sub) {
   const wrap = document.createElement("div");
   wrap.className = "thumb-wrap";
   const img = document.createElement("img");
-  img.src = imgSrc(meta.thumb || "");
+  img.src = imgSrc(meta.thumb || "", 400);
   armImg(img, meta.title || slug);
   wrap.appendChild(img);
   if (meta.type) {
