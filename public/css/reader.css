@@ -164,18 +164,44 @@ body.reader-hide-chrome header { transform: translateY(-110%); opacity: 0; point
   z-index: 45;
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(16, 20, 27, 0.96);
+  gap: 8px;
+  background: rgba(16, 20, 27, 0.8);
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 6px;
+  padding: 5px 6px 5px 12px;
   box-shadow: var(--shadow);
   max-width: calc(100vw - 20px);
   transition: transform 0.3s ease, opacity 0.3s ease;
 }
 body.reader-hide-chrome .reader-bottombar { transform: translate(-50%, 140%); opacity: 0; pointer-events: none; }
-.reader-bottombar .btn { padding: 8px 14px; font-size: 13px; }
-.reader-bottombar .pg { font-size: 12px; color: #fff; padding: 0 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.reader-bottombar .pg { font-size: 12px; color: #fff; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.reader-bottombar .toc {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 14px;
+}
+.resume-banner {
+  position: sticky;
+  top: calc(var(--header-h) + 8px);
+  z-index: 30;
+  display: block;
+  margin: 10px auto;
+  max-width: max-content;
+  background: rgba(16, 20, 27, 0.95);
+  border: 1px solid var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
 
 .fab-top {
   position: fixed;
@@ -195,11 +221,11 @@ body.reader-hide-chrome .reader-bottombar { transform: translate(-50%, 140%); op
 
 .fab-top.show { display: block; }
 
-.next-chapter-zone { max-width: 800px; margin: 18px auto; padding: 0 16px 30px; text-align: center; }
+.next-chapter-zone { max-width: 800px; margin: 18px auto; padding: 0 16px 30px; text-align: center; display: grid; gap: 12px; }
 .next-chapter-zone .btn { width: 100%; padding: 14px; font-size: 15px; }
-
-.reader-nav-row { display: flex; gap: 10px; max-width: 860px; margin: 14px auto 0; padding: 0 clamp(12px, 3vw, 24px); }
-.reader-nav-row .btn { flex: 1; text-align: center; }
+.end-links { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; }
+.end-links a { color: var(--muted); font-size: 13px; }
+.end-links a:hover { color: #fff; }
 
 .tap-hint {
   text-align: center;

@@ -280,23 +280,21 @@ async function pageRead() {
     stage.appendChild(p);
   }
 
-  // ---- bottom bar + fab + nav ----
+  // ---- bottom bar pasif: indikator halaman + jalan ke daftar chapter (Prev/Next di ujung + keyboard) ----
   const bottom = document.createElement("div");
   bottom.className = "reader-bottombar";
-  const mkNav = (href, label, cls) => {
-    const a = document.createElement("a");
-    a.className = cls;
-    a.href = href;
-    a.textContent = label;
-    return a;
-  };
-  if (prevCh && m) bottom.appendChild(mkNav(`/read.html?c=${encodeURIComponent(prevCh.chapter_endpoint)}&m=${encodeURIComponent(m)}`, "← Prev", "btn secondary"));
   const pg = document.createElement("span");
   pg.className = "pg";
   pg.textContent = `0 / ${total}`;
   bottom.appendChild(pg);
-  if (m) bottom.appendChild(mkNav(`/detail.html?slug=${encodeURIComponent(m)}`, "☰", "btn secondary"));
-  if (nextCh && m) bottom.appendChild(mkNav(`/read.html?c=${encodeURIComponent(nextCh.chapter_endpoint)}&m=${encodeURIComponent(m)}`, "Next →", "btn"));
+  if (m) {
+    const listBtn = document.createElement("a");
+    listBtn.className = "toc";
+    listBtn.href = `/detail.html?slug=${encodeURIComponent(m)}`;
+    listBtn.textContent = "☰";
+    listBtn.setAttribute("aria-label", "Daftar chapter");
+    bottom.appendChild(listBtn);
+  }
   document.body.appendChild(bottom);
 
   const fab = document.createElement("button");
@@ -316,11 +314,12 @@ async function pageRead() {
       const n = Number(e.target.querySelector("img")?.alt?.match(/\d+/)?.[0] || 0);
       if (n) {
         seen.add(n);
-        pg.textContent = `${Math.max(...seen)} / ${total}`;
+        const cur = Math.max(...seen);
+        pg.textContent = `${cur} / ${total}`;
+        try { localStorage.setItem(resumeKey, String(cur)); } catch (_) {}
       }
     });
   }, { threshold: 0.4 });
-  stage.querySelectorAll(".page-item").forEach((f) => pageIO.observe(f));
 
   const onScroll = () => {
     if (ticking) return;
@@ -344,22 +343,24 @@ async function pageRead() {
       } else {
         document.body.classList.remove("reader-hide-chrome");
       }
-      try { localStorage.setItem(resumeKey, String(y)); } catch (_) {}
     });
   };
-
-  const resumeKey = `kmn_pos:${m || "?"}:${cleanEp(c)}`;
+  const resumeKey = `kmn_page:${m || "?"}:${cleanEp(c)}`;
   try {
-    const lastPos = parseInt(localStorage.getItem(resumeKey) || "0", 10);
-    if (lastPos > 300) {
-      setTimeout(() => {
-        const go = confirm("Lanjutkan dari posisi baca terakhir?");
-        if (go) window.scrollTo(0, lastPos);
-      }, 400);
+    const lastPage = parseInt(localStorage.getItem(resumeKey) || "0", 10);
+    if (lastPage > 1 && lastPage <= total) {
+      const banner = document.createElement("button");
+      banner.className = "resume-banner";
+      banner.textContent = `Lanjut hal. ${lastPage} / ${total} · ketuk untuk loncat`;
+      banner.onclick = () => {
+        const fig = stage.querySelectorAll(".page-item")[lastPage - 1];
+        if (fig) fig.scrollIntoView({ block: "start" });
+        banner.remove();
+      };
+      app.appendChild(banner);
+      setTimeout(() => banner.remove(), 8000);
     }
   } catch (_) {}
-  window.addEventListener("scroll", onScroll, { passive: true });
-  onScroll();
 
   // cleanup saat pindah halaman (SPA tidak dipakai, tapi aman bila back/forward cache)
   window.addEventListener("pagehide", () => {
@@ -375,35 +376,32 @@ async function pageRead() {
     saveStore("kmn_read", readMap);
   }
 
-  // next-chapter CTA di ujung
-  const navRow = document.createElement("div");
-  navRow.className = "reader-nav-row";
-  if (prevCh && m) {
-    const a = document.createElement("a");
-    a.className = "btn secondary";
-    a.href = `/read.html?c=${encodeURIComponent(prevCh.chapter_endpoint)}&m=${encodeURIComponent(m)}`;
-    a.textContent = "← Chapter sebelumnya";
-    navRow.appendChild(a);
-  }
-  if (m) {
-    const a = document.createElement("a");
-    a.className = "btn secondary";
-    a.href = `/detail.html?slug=${encodeURIComponent(m)}`;
-    a.textContent = "Daftar chapter";
-    navRow.appendChild(a);
-  }
-  app.appendChild(navRow);
-
+  // CTA ujung tunggal: lanjut besar + link kecil prev/daftar (ganti nav-row ganda)
+  const zone = document.createElement("div");
+  zone.className = "next-chapter-zone";
   if (nextCh && m) {
-    const zone = document.createElement("div");
-    zone.className = "next-chapter-zone";
     const a = document.createElement("a");
     a.className = "btn";
     a.href = `/read.html?c=${encodeURIComponent(nextCh.chapter_endpoint)}&m=${encodeURIComponent(m)}`;
     a.textContent = `Lanjut: ${nextCh.chapter_title} →`;
     zone.appendChild(a);
-    app.appendChild(zone);
   }
+  const sub = document.createElement("div");
+  sub.className = "end-links";
+  if (prevCh && m) {
+    const a = document.createElement("a");
+    a.href = `/read.html?c=${encodeURIComponent(prevCh.chapter_endpoint)}&m=${encodeURIComponent(m)}`;
+    a.textContent = "← Chapter sebelumnya";
+    sub.appendChild(a);
+  }
+  if (m) {
+    const a = document.createElement("a");
+    a.href = `/detail.html?slug=${encodeURIComponent(m)}`;
+    a.textContent = "Daftar chapter";
+    sub.appendChild(a);
+  }
+  if (sub.childNodes.length) zone.appendChild(sub);
+  if (zone.childNodes.length) app.appendChild(zone);
 }
 
 // Navigasi keyboard di halaman baca: ← prev, → next
@@ -411,10 +409,10 @@ if (document.body.dataset.page === "read") {
   document.addEventListener("keydown", (e) => {
     if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName || "")) return;
     if (e.key === "ArrowLeft") {
-      const a = [...document.querySelectorAll(".reader-bottombar a, .reader-nav-row a")].find((x) => x.textContent.includes("Prev") || x.textContent.includes("sebelumnya"));
-      if (a) a.click();
+      const a = document.querySelector(".next-chapter-zone .end-links a:first-child");
+      if (a && a.textContent.includes("sebelumnya")) a.click();
     } else if (e.key === "ArrowRight") {
-      const nx = [...document.querySelectorAll(".reader-bottombar a, .next-chapter-zone a")].find((x) => x.textContent.includes("Next") || x.textContent.includes("Lanjut"));
+      const nx = document.querySelector(".next-chapter-zone > a.btn");
       if (nx) nx.click();
     }
   });
