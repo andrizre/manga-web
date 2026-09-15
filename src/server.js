@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const path = require("path");
 const express = require("express");
 const scraper = require("./scraper");
@@ -11,10 +12,62 @@ const PORT = process.env.PORT || 3000;
 const CACHE_LIST = 600; // list, search, genre, detail: 10 menit
 const CACHE_CHAPTER = 3600; // chapter: 1 jam (isi halaman jarang berubah)
 
+// ---------- Kunci akses pribadi: situs terkunci sebelum dipakai penuh ----------
+// Kunci default "andrizre"; ganti via env SITE_KEY di Vercel agar tidak terpampang di repo publik.
+// Token cookie = SHA-256 stateless sehingga valid antar instance serverless tanpa sesi.
+
+const SITE_KEY = process.env.SITE_KEY || "andrizre";
+const AUTH_TOKEN = crypto.createHash("sha256").update(`kmn-auth:${SITE_KEY}`).digest("hex");
+
+function getCookie(req, name) {
+  const parts = String(req.headers.cookie || "").split(";");
+  for (const p of parts) {
+    const i = p.indexOf("=");
+    if (i === -1) continue;
+    if (p.slice(0, i).trim() === name) return decodeURIComponent(p.slice(i + 1).trim());
+  }
+  return "";
+}
+
+function isAuthed(req) {
+  const v = getCookie(req, "kmn_auth");
+  if (!v || v.length !== AUTH_TOKEN.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(v), Buffer.from(AUTH_TOKEN));
+  } catch (_) {
+    return false;
+  }
+}
+
+// API selain login/logout: 401 bila cookie kunci tidak cocok
+function authApi(req, res, next) {
+  if (req.path === "/api/login" || req.path === "/api/logout") return next();
+  if (req.path === "/api" || req.path.startsWith("/api/")) {
+    if (!isAuthed(req)) return res.status(401).json({ status: false, message: "Butuh kunci akses", code: "NEED_KEY" });
+  }
+  next();
+}
+
+// Halaman HTML selain gate: sajikan gate.html bila belum buka kunci
+// Termasuk "/" yang oleh express.static dipetakan ke index.html — tangani eksplisit di sini.
+function authPage(req, res, next) {
+  if (req.method !== "GET") return next();
+  const p = req.path;
+  if (p === "/gate.html") return next();
+  if (p === "/" || p.endsWith(".html")) {
+    if (isAuthed(req)) return next();
+    res.set("X-Robots-Tag", "noindex, nofollow");
+    if (p === "/") res.set("Cache-Control", "private, no-store");
+    return res.sendFile(path.join(__dirname, "..", "public", "gate.html"));
+  }
+  next();
+}
+
 // ---------- Rate-limit best-effort per instance (60 req/menit per IP untuk /api) ----------
 // Batas global antar instance diatur di dashboard Vercel; ini hanya penahan burst lokal.
 
 app.set("trust proxy", 1);
+app.use(express.json());
 
 const RL_WINDOW = 60 * 1000;
 const RL_MAX = 60;
@@ -37,6 +90,8 @@ function rateLimit(req, res, next) {
 }
 
 app.use(rateLimit);
+app.use(authApi);
+app.use(authPage);
 
 // ---------- Wrapper handler scraper: cache di CDN, bukan memori lokal ----------
 
@@ -45,7 +100,8 @@ function wrap(fn, ttl = CACHE_LIST) {
     const key = `${req.method} ${req.originalUrl}`;
     try {
       const data = await fn(req);
-      res.set("Cache-Control", `public, s-maxage=${ttl}, stale-while-revalidate=${ttl * 6}`);
+      if (ttl > 0) res.set("Cache-Control", `private, s-maxage=${ttl}, stale-while-revalidate=${ttl * 6}`);
+      else res.set("Cache-Control", "private, no-store");
       res.json(data);
     } catch (err) {
       console.error(`[${new Date().toISOString()}] ${key}:`, err.message);
@@ -168,27 +224,52 @@ app.get("/api/genres", wrap(() => scraper.genreList().then((list) => ({
 app.get("/api/search", wrap((req) => {
   const q = safeDecode(String(req.query.q || ""));
   return scraper.searchManga(q).then((data) => mangaListShape(data));
-}));
+}, 0));
+
+app.get("/api/manga/detail/:slug", wrap((req) => scraper.detailManga(cleanSlug(req.params.slug))));
 
 app.get("/api/chapter/:slug", wrap((req) => scraper.chapterDetail(cleanSlug(req.params.slug)), CACHE_CHAPTER));
 
 app.use(express.static(path.join(__dirname, "..", "public"), {
-  maxAge: "1d",
   setHeaders(res, filePath) {
     // HTML: revalidasi tiap request; aset hash-less (app.js) dijamin segar via SW VERSION
-    if (filePath.endsWith(".html")) res.set("Cache-Control", "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400");
+    if (filePath.endsWith(".html")) {
+      res.set("Cache-Control", "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400");
+      res.set("X-Robots-Tag", "noindex, nofollow"); // situs pribadi: jangan diindeks
+    }
   },
 }));
+
+app.post("/api/login", (req, res) => {
+  const key = String((req.body && req.body.key) || "");
+  if (key.length !== SITE_KEY.length) return res.status(401).json({ status: false, message: "Kunci salah" });
+  try {
+    if (!crypto.timingSafeEqual(Buffer.from(key), Buffer.from(SITE_KEY))) {
+      return res.status(401).json({ status: false, message: "Kunci salah" });
+    }
+  } catch (_) {
+    return res.status(401).json({ status: false, message: "Kunci salah" });
+  }
+  res.cookie("kmn_auth", AUTH_TOKEN, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 365 * 24 * 3600 * 1000, // buka sekali, ingat 1 tahun
+    path: "/",
+  });
+  res.json({ status: true, message: "Kunci diterima" });
+});
+
+app.post("/api/logout", (req, res) => {
+  res.clearCookie("kmn_auth", { path: "/" });
+  res.json({ status: true, message: "Terkunci kembali" });
+});
 
 app.get("/api", (req, res) => {
   res.json({
     status: true,
     message: "API komik aktif. Endpoint: /api/manga/page/:n, /api/manga/popular/:n, /api/manhwa/:n, /api/manhua/:n, /api/genres/:slug/:n, /api/genres, /api/search?q=, /api/manga/detail/:slug, /api/chapter/:slug",
   });
-});
-
-app.use((req, res) => {
-  res.status(404).json({ success: false, message: "api path not found" });
 });
 
 // Express decode param gagal sebelum handler (mis. %ZZ): jawab JSON, bukan HTML

@@ -9,10 +9,18 @@
       ["/", "Home"],
       ["/browse.html", "Jelajah"],
       ["/favorites.html", "Favorit"],
+      ["#logout", "Kunci"],
     ].forEach(([href, label]) => {
       const a = document.createElement("a");
       a.href = href;
       a.textContent = label;
+      if (href === "#logout") {
+        a.onclick = async (e) => {
+          e.preventDefault();
+          try { await fetch("/api/logout", { method: "POST" }); } catch (_) {}
+          location.href = "/gate.html";
+        };
+      }
       nav.appendChild(a);
     });
     header.appendChild(nav);
@@ -71,8 +79,12 @@ function getHistory() {
 
 const $app = () => document.getElementById("app");
 
-async function api(path) {
+async function api(path, { retry = true } = {}) {
   const res = await fetch(path);
+  if (res.status === 401 && retry && !document.body.dataset.page.includes("gate")) {
+    location.href = `/gate.html?next=${encodeURIComponent(location.pathname + location.search)}`;
+    throw new Error("Butuh kunci akses.");
+  }
   if (!res.ok) {
     let msg = `Gagal memuat data (${res.status})`;
     try {

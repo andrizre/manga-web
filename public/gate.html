@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Masuk - KomikuNesia</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0e1013">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+.gate-wrap { max-width: 380px; margin: 12vh auto; padding: 28px; background: var(--card); border-radius: 14px; text-align: center; }
+.gate-wrap h1 { font-size: 22px; margin-bottom: 8px; }
+.gate-wrap p { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
+.gate-wrap input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #2a2e38; background: #0e1013; color: var(--text); font-size: 16px; margin-bottom: 12px; text-align: center; }
+.gate-wrap .btn { width: 100%; padding: 12px; }
+.gate-err { color: #f87171; font-size: 13px; min-height: 20px; margin-top: 10px; }
+</style>
+</head>
+<body data-page="gate">
+<header>
+  <a class="logo" href="/">KomikuNesia</a>
+</header>
+<main id="app">
+  <div class="gate-wrap">
+    <h1>🔒 Situs Pribadi</h1>
+    <p>Masukkan kunci akses untuk membuka.</p>
+    <form id="gate-form">
+      <input id="gate-key" type="password" placeholder="Kunci akses" autocomplete="current-password" aria-label="Kunci akses" autofocus>
+      <button class="btn" type="submit">Buka</button>
+    </form>
+    <div class="gate-err" id="gate-err" role="alert"></div>
+  </div>
+</main>
+<script>
+(function () {
+  const next = new URLSearchParams(location.search).get("next") || "/";
+  const form = document.getElementById("gate-form");
+  const input = document.getElementById("gate-key");
+  const err = document.getElementById("gate-err");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    err.textContent = "";
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: input.value }),
+      });
+      if (!res.ok) throw new Error("Kunci salah.");
+      location.href = next.startsWith("/") ? next : "/";
+    } catch (_) {
+      err.textContent = "Kunci salah, coba lagi.";
+      input.select();
+    }
+  });
+})();
+</script>
+</body>
+</html>

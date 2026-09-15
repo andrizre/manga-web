@@ -2,7 +2,7 @@
 // - App shell (HTML/CSS/JS/ikon): cache-first, update di background
 // - API: network-first dengan fallback cache (data basi lebih baik daripada error)
 
-const VERSION = "v4";
+const VERSION = "v5";
 const SHELL_CACHE = `shell-${VERSION}`;
 const API_CACHE = `api-${VERSION}`;
 const API_MAX = 50;
@@ -15,6 +15,7 @@ const SHELL_ASSETS = [
   "/detail.html",
   "/favorites.html",
   "/read.html",
+  "/gate.html",
   "/css/style.css",
   "/js/app.js",
   "/manifest.webmanifest",
@@ -59,7 +60,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(event.request)
         .then((res) => {
-          if (res.ok) {
+          if (res.ok && res.status !== 401) {
             const copy = res.clone();
             caches.open(API_CACHE).then(async (c) => {
               await c.put(event.request, copy);
